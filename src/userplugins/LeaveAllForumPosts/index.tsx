@@ -103,10 +103,19 @@ async function leaveForumPostsForGuild(guild: Guild) {
     }
 }
 
-const Patch: NavContextMenuPatchCallback = (children, { guild }: { guild: Guild; }) => {
-    const group = findGroupChildrenByChildId("privacy", children);
+type ContextMenuProps = {
+    guild?: Guild;
+    channel?: Channel;
+};
 
-    group?.push(
+const Patch: NavContextMenuPatchCallback = (children, { guild, channel }: ContextMenuProps) => {
+    if (!guild) return;
+    // The channel-context menu is shared by every channel. Only add this
+    // server-wide action when a forum or forum post was clicked.
+    if (channel && !channel.isForumChannel() && !channel.isForumPost()) return;
+
+    const group = findGroupChildrenByChildId("privacy", children);
+    const item = (
         <Menu.MenuItem
             id="vc-leave-all-forum-posts"
             label="Leave All Forum Posts"
@@ -117,6 +126,10 @@ const Patch: NavContextMenuPatchCallback = (children, { guild }: { guild: Guild;
             }}
         />
     );
+
+    // Discord occasionally omits the privacy group; still show the action.
+    if (group) group.push(item);
+    else children.push(<Menu.MenuGroup>{item}</Menu.MenuGroup>);
 };
 
 export default definePlugin({
@@ -126,6 +139,8 @@ export default definePlugin({
     authors: [Devs.castdrian],
     settings,
     contextMenus: {
-        "guild-context": Patch
+        "guild-context": Patch,
+        "guild-header-popout": Patch,
+        "channel-context": Patch
     }
 });
